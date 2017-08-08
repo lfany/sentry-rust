@@ -21,28 +21,34 @@ use std::error::Error;
 use std::str::FromStr;
 // use std::io::Write;
 mod errors;
+
 pub use self::errors::*;
 
 #[macro_use]
 extern crate hyper;
+
 use hyper::Client;
 use hyper::net::HttpsConnector;
 use hyper::header::{Headers, ContentType};
 
 extern crate hyper_native_tls;
+
 use hyper_native_tls::NativeTlsClient;
 
 extern crate chrono;
+
 use chrono::offset::Utc;
 
 struct ThreadState<'a> {
     alive: &'a mut Arc<AtomicBool>,
 }
+
 impl<'a> ThreadState<'a> {
     fn set_alive(&self) {
         self.alive.store(true, Ordering::Relaxed);
     }
 }
+
 impl<'a> Drop for ThreadState<'a> {
     fn drop(&mut self) {
         self.alive.store(false, Ordering::Relaxed);
@@ -50,26 +56,28 @@ impl<'a> Drop for ThreadState<'a> {
 }
 
 pub trait WorkerClosure<T, P>: Fn(&P, T) -> () + Send + Sync {}
+
 impl<T, F, P> WorkerClosure<T, P> for F where F: Fn(&P, T) -> () + Send + Sync {}
 
 
 pub struct SingleWorker<T: 'static + Send, P: Clone + Send> {
     parameters: P,
-    f: Arc<Box<WorkerClosure<T, P, Output = ()>>>,
+    f: Arc<Box<WorkerClosure<T, P, Output=()>>>,
     receiver: Arc<Mutex<Receiver<T>>>,
     sender: Mutex<Sender<T>>,
     alive: Arc<AtomicBool>,
 }
 
 impl<T: 'static + Debug + Send, P: 'static + Clone + Send> SingleWorker<T, P> {
-    pub fn new(parameters: P, f: Box<WorkerClosure<T, P, Output = ()>>) -> SingleWorker<T, P> {
+    pub fn new(parameters: P, f: Box<WorkerClosure<T, P, Output=()>>) -> SingleWorker<T, P> {
         let (sender, receiver) = channel::<T>();
 
         let worker = SingleWorker {
             parameters: parameters,
             f: Arc::new(f),
             receiver: Arc::new(Mutex::new(receiver)),
-            sender: Mutex::new(sender), /* too bad sender is not sync -- suboptimal.... see https://github.com/rust-lang/rfcs/pull/1299/files */
+            sender: Mutex::new(sender),
+            /* too bad sender is not sync -- suboptimal.... see https://github.com/rust-lang/rfcs/pull/1299/files */
             alive: Arc::new(AtomicBool::new(true)),
         };
         SingleWorker::spawn_thread(&worker);
@@ -101,7 +109,6 @@ impl<T: 'static + Debug + Send, P: 'static + Clone + Send> SingleWorker<T, P> {
                     }
                 };
             }
-
         });
         while !worker.is_alive() {
             thread::yield_now();
@@ -197,7 +204,7 @@ impl ToJsonString for String {
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct StackFrame {
     filename: String,
     function: String,
@@ -205,28 +212,44 @@ pub struct StackFrame {
 }
 
 // see https://docs.getsentry.com/hosted/clientdev/attributes/
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Event {
     // required
-    event_id: String, // uuid4 exactly 32 characters (no dashes!)
-    message: String, // Maximum length is 1000 characters.
-    timestamp: String, // ISO 8601 format, without a timezone ex: "2011-05-02T17:41:36"
-    level: String, // fatal, error, warning, info, debug
-    logger: String, // ex "my.logger.name"
-    platform: String, // Acceptable values ..., other
+    event_id: String,
+    // uuid4 exactly 32 characters (no dashes!)
+    message: String,
+    // Maximum length is 1000 characters.
+    timestamp: String,
+    // ISO 8601 format, without a timezone ex: "2011-05-02T17:41:36"
+    level: String,
+    // fatal, error, warning, info, debug
+    logger: String,
+    // ex "my.logger.name"
+    platform: String,
+    // Acceptable values ..., other
     sdk: SDK,
     device: Device,
     // optional
-    culprit: Option<String>, // the primary perpetrator of this event ex: "my.module.function_name"
-    server_name: Option<String>, // host client from which the event was recorded
-    stack_trace: Option<Vec<StackFrame>>, // stack trace
-    release: Option<String>, // generally be something along the lines of the git SHA for the given project
-    tags: Vec<(String, String)>, // WARNING! should be serialized as json object k->v
-    environment: Option<String>, // ex: "production"
-    modules: Vec<(String, String)>, // WARNING! should be serialized as json object k->v
-    extra: Vec<(String, String)>, // WARNING! should be serialized as json object k->v
-    fingerprint: Vec<String>, // An array of strings used to dictate the deduplicating for this event.
+    culprit: Option<String>,
+    // the primary perpetrator of this event ex: "my.module.function_name"
+    server_name: Option<String>,
+    // host client from which the event was recorded
+    stack_trace: Option<Vec<StackFrame>>,
+    // stack trace
+    release: Option<String>,
+    // generally be something along the lines of the git SHA for the given project
+    tags: Vec<(String, String)>,
+    // WARNING! should be serialized as json object k->v
+    environment: Option<String>,
+    // ex: "production"
+    modules: Vec<(String, String)>,
+    // WARNING! should be serialized as json object k->v
+    extra: Vec<(String, String)>,
+    // WARNING! should be serialized as json object k->v
+    fingerprint: Vec<String>,
+    // An array of strings used to dictate the deduplicating for this event.
 }
+
 impl Event {
     pub fn new(logger: &str,
                level: &str,
@@ -240,14 +263,13 @@ impl Event {
                environment: Option<&str>,
                tags: Option<Vec<(String, String)>>,
                extra: Option<Vec<(String, String)>>,
-               )
+    )
                -> Event {
-
-
         Event {
             event_id: "".to_string(),
             message: message.to_owned(),
-            timestamp: Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(), /* ISO 8601 format, without a timezone ex: "2011-05-02T17:41:36" */
+            timestamp: Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
+            /* ISO 8601 format, without a timezone ex: "2011-05-02T17:41:36" */
             level: level.to_owned(),
             logger: logger.to_owned(),
             platform: "other".to_string(),
@@ -358,11 +380,12 @@ impl ToJsonString for Event {
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct SDK {
     name: String,
     version: String,
 }
+
 impl ToJsonString for SDK {
     fn to_json_string(&self) -> String {
         format!("{{\"name\":\"{}\",\"version\":\"{}\"}}",
@@ -370,6 +393,7 @@ impl ToJsonString for SDK {
                 self.version)
     }
 }
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Device {
     name: String,
@@ -378,13 +402,13 @@ pub struct Device {
 }
 
 impl Device {
-  pub fn new(name: String, version: String, build: String) -> Device {
-    Device {
-      name: name,
-      version: version,
-      build: build
+    pub fn new(name: String, version: String, build: String) -> Device {
+        Device {
+            name: name,
+            version: version,
+            build: build
+        }
     }
-  }
 }
 
 impl Default for Device {
@@ -411,9 +435,11 @@ impl ToJsonString for Device {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SentryCredential {
+    pub scheme: String,
     pub key: String,
     pub secret: String,
     pub host: String,
+    pub port: String,
     pub project_id: String,
 }
 
@@ -428,7 +454,7 @@ impl fmt::Display for CredentialParseError {
 
 impl Error for CredentialParseError {
     fn description(&self) -> &str {
-        "Invalid Sentry DSN syntax. Expected the form `https://{public key}:{private key}@{host}/{project id}`"
+        "Invalid Sentry DSN syntax. Expected the form `http[s]://{public key}:{private key}@{host}{[:port]}/{project id}`"
     }
 }
 
@@ -437,27 +463,39 @@ impl FromStr for SentryCredential {
     fn from_str(s: &str) -> std::result::Result<SentryCredential, CredentialParseError> {
         url::Url::parse(s).ok()
             .and_then(|url| {
+                let scheme = url.scheme().to_string();
+                if !scheme.is_empty() { Some((url, scheme)) } else { None }
+            })
+            .and_then(|(url, scheme)| {
                 let username = url.username().to_string();
-                if !username.is_empty() { Some((url, username)) } else { None }
+                if !username.is_empty() { Some((url, scheme, username)) } else { None }
             })
-            .and_then(|(url, username)| {
+            .and_then(|(url, scheme, username)| {
                 let password = url.password().map(str::to_string);
-                password.map(|pw| (url, username, pw))
+                password.map(|pw| (url, scheme, username, pw))
             })
-            .and_then(|(url, username, pw)| {
+            .and_then(|(url, scheme, username, pw)| {
                 let host = url.host_str().map(str::to_string);
-                host.map(|host| (url, username, pw, host))
+                host.map(|host| (url, scheme, username, pw, host))
             })
-            .and_then(|(url, username, pw, host)| {
+            .and_then(|(url, scheme, username, pw, host)| {
+                let port = url.port();
+                let parsed_port: String;
+                if port == None { parsed_port = "".to_string(); } else { parsed_port = port.unwrap().to_string(); }
+                Some((url, scheme, username, pw, host, parsed_port))
+            })
+            .and_then(|(url, scheme, username, pw, host, port)| {
                 url.path_segments()
                     .and_then(|paths| paths.last().map(str::to_string))
-                    .and_then(|path| if !path.is_empty() { Some((username, pw, host, path)) } else { None })
+                    .and_then(|path| if !path.is_empty() { Some((url, scheme, username, pw, host, port, path)) } else { None })
             })
-            .map(|(username, pw, host, path)| {
+            .map(|(_, scheme, username, pw, host, port, path)| {
                 SentryCredential {
+                    scheme: scheme,
                     key: username,
                     secret: pw,
                     host: host,
+                    port: port,
                     project_id: path
                 }
             })
@@ -519,7 +557,6 @@ impl Sentry {
     }
 
 
-
     // POST /api/1/store/ HTTP/1.1
     // Content-Type: application/json
     //
@@ -556,10 +593,12 @@ impl Sentry {
         client.set_write_timeout(Some(Duration::new(5, 0)));
 
         // {PROTOCOL}://{PUBLIC_KEY}:{SECRET_KEY}@{HOST}/{PATH}{PROJECT_ID}/store/
-        let url = format!("https://{}:{}@{}/api/{}/store/",
+        let url = format!("{}://{}:{}@{}{:}/api/{}/store/",
+                          credential.scheme,
                           credential.key,
                           credential.secret,
                           credential.host,
+                          credential.port,
                           credential.project_id);
 
         let mut res = client.post(&url)
@@ -581,7 +620,6 @@ impl Sentry {
     pub fn register_panic_handler<F>(&self, maybe_f: Option<F>)
         where F: Fn(&std::panic::PanicInfo) + 'static + Sync + Send
     {
-
         let device = self.settings.device.clone();
         let server_name = self.settings.server_name.clone();
         let release = self.settings.release.clone();
@@ -661,13 +699,13 @@ impl Sentry {
     }
 
     pub fn log(&self,
-           logger: &str,
-           level: &str,
-           message: &str,
-           culprit: Option<&str>,
-           fingerprint: Option<Vec<String>>,
-           tags: Option<Vec<(String, String)>>,
-           extra: Option<Vec<(String, String)>>) {
+               logger: &str,
+               level: &str,
+               message: &str,
+               culprit: Option<&str>,
+               fingerprint: Option<Vec<String>>,
+               tags: Option<Vec<(String, String)>>,
+               extra: Option<Vec<(String, String)>>) {
         let fpr = match fingerprint {
             Some(f) => f,
             None => {
@@ -720,7 +758,6 @@ mod tests {
 
     #[test]
     fn it_should_pass_value_to_worker_thread() {
-
         let (sender, receiver) = channel();
         let s = Mutex::new(sender);
         let worker = SingleWorker::new("",
@@ -741,18 +778,17 @@ mod tests {
         let i = AtomicUsize::new(0);
         let worker = SingleWorker::new("",
                                        Box::new(move |_, v| {
-            let lock = match s.lock() {
-                Ok(guard) => guard,
-                Err(poisoned) => poisoned.into_inner(),
-            };
-            let _ = lock.send(v);
+                                           let lock = match s.lock() {
+                                               Ok(guard) => guard,
+                                               Err(poisoned) => poisoned.into_inner(),
+                                           };
+                                           let _ = lock.send(v);
 
-            i.fetch_add(1, Ordering::SeqCst);
-            if i.load(Ordering::Relaxed) == 2 {
-                panic!("PanicTesting");
-            }
-
-        }));
+                                           i.fetch_add(1, Ordering::SeqCst);
+                                           if i.load(Ordering::Relaxed) == 2 {
+                                               panic!("PanicTesting");
+                                           }
+                                       }));
         let v0 = "Value0";
         let v1 = "Value1";
         let v2 = "Value2";
@@ -775,7 +811,6 @@ mod tests {
         assert!(recv_v1 == Some(v1));
         assert!(recv_v2 == Some(v2));
         assert!(recv_v3 == Some(v3));
-
     }
 
     #[test]
@@ -784,9 +819,11 @@ mod tests {
                                  "release".to_string(),
                                  "test_env".to_string(),
                                  SentryCredential {
+                                     scheme: "https".to_string(),
                                      key: "xx".to_string(),
                                      secret: "xx".to_string(),
                                      host: "app.getsentry.com".to_string(),
+                                     port: "".to_string(),
                                      project_id: "xx".to_string(),
                                  });
 
@@ -809,7 +846,6 @@ mod tests {
 
         assert_eq!(receiver.recv().unwrap(), true);
         sentry.unregister_panic_handler();
-
     }
 
     #[test]
@@ -818,9 +854,11 @@ mod tests {
                                           "release".to_string(),
                                           "test_env".to_string(),
                                           SentryCredential {
+                                              scheme: "https".to_string(),
                                               key: "xx".to_string(),
                                               secret: "xx".to_string(),
                                               host: "app.getsentry.com".to_string(),
+                                              port: "".to_string(),
                                               project_id: "xx".to_string(),
                                           }));
 
@@ -840,9 +878,11 @@ mod tests {
     fn test_parsing_dsn_when_valid() {
         let parsed_creds: SentryCredential = "https://mypublickey:myprivatekey@myhost/myprojectid".parse().unwrap();
         let manual_creds = SentryCredential {
+            scheme: "https".to_string(),
             key: "mypublickey".to_string(),
             secret: "myprivatekey".to_string(),
             host: "myhost".to_string(),
+            port: "".to_string(),
             project_id: "myprojectid".to_string()
         };
         assert_eq!(parsed_creds, manual_creds);
@@ -852,10 +892,26 @@ mod tests {
     fn test_parsing_dsn_with_nested_project_id() {
         let parsed_creds: SentryCredential = "https://mypublickey:myprivatekey@myhost/foo/bar/myprojectid".parse().unwrap();
         let manual_creds = SentryCredential {
+            scheme: "https".to_string(),
             key: "mypublickey".to_string(),
             secret: "myprivatekey".to_string(),
             host: "myhost".to_string(),
+            port: "".to_string(),
             project_id: "myprojectid".to_string()
+        };
+        assert_eq!(parsed_creds, manual_creds);
+    }
+
+    #[test]
+    fn test_parsing_dsn_when_with_http_unnormal_port() {
+        let parsed_creds: SentryCredential = "http://mypublickey:myprivatekey@myhost:444/222".parse().unwrap();
+        let manual_creds = SentryCredential {
+            scheme: "http".to_string(),
+            key: "mypublickey".to_string(),
+            secret: "myprivatekey".to_string(),
+            host: "myhost".to_string(),
+            port: "444".to_string(),
+            project_id: "222".to_string()
         };
         assert_eq!(parsed_creds, manual_creds);
     }
