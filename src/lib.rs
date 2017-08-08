@@ -593,12 +593,12 @@ impl Sentry {
         client.set_write_timeout(Some(Duration::new(5, 0)));
 
         // {PROTOCOL}://{PUBLIC_KEY}:{SECRET_KEY}@{HOST}/{PATH}{PROJECT_ID}/store/
-        let url = format!("{}://{}:{}@{}{:}/api/{}/store/",
+        let url = format!("{}://{}:{}@{}{}/api/{}/store/",
                           credential.scheme,
                           credential.key,
                           credential.secret,
                           credential.host,
-                          credential.port,
+                          if credential.port.is_empty() { "".to_string() } else { ":".to_string() + &(credential.port) },
                           credential.project_id);
 
         let mut res = client.post(&url)
@@ -962,23 +962,25 @@ mod tests {
         assert_eq!(from_settings.settings.device, device);
     }
 
-    // #[test]
-    // fn it_post_sentry_event() {
-    //     let sentry = Sentry::new("Server Name".to_string(),
-    //                              "release".to_string(),
-    //                              "test_env".to_string(),
-    //                              SentryCredential {
-    //                                  key: "xx".to_string(),
-    //                                  secret: "xx".to_string(),
-    //                                  host: "app.getsentry.com".to_string(),
-    //                                  project_id: "xx".to_string(),
-    //                              });
+    //     #[test]
+    //     fn it_post_sentry_event() {
+    //         let sentry = Sentry::new("Server Name".to_string(),
+    //                                  "release".to_string(),
+    //                                  "test_env".to_string(),
+    //                                  SentryCredential {
+    //                                      scheme: "https".to_string(),
+    //                                      key: "xx".to_string(),
+    //                                      secret: "xx".to_string(),
+    //                                      host: "app.getsentry.com".to_string(),
+    //                                      port: "".to_string(),
+    //                                      project_id: "xx".to_string(),
+    //                                  });
     //
-    //     sentry.info("test.logger",
-    //                 "Test Message\nThis \"Message\" is nice\\cool!\nEnd",
-    //                 None);
+    //         sentry.info("test.logger",
+    //                     "Test Message\nThis \"Message\" is nice\\cool!\nEnd",
+    //                     None);
     //
-    //     thread::sleep(Duration::new(5, 0));
+    //         thread::sleep(Duration::new(5, 0));
     //
-    // }
+    //     }
 }
